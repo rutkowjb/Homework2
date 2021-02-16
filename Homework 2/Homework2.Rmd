@@ -1,0 +1,143 @@
+---
+title: "Homework2"
+author: "Joe Rutkowski"
+date: "2/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(knitr)
+library(ggfortify)
+library(emmeans)
+color_interference <- read.csv("color_interference.csv")
+infarct <- read.csv("infarct.csv")
+```
+
+## Problem 1
+
+An experiment was conducted to determine the time taken for individuals to read a list of words. Specifically, individuals were tasked with reading a list of color names in two settings: subjects would read a list of colors written in a different color (e.g., blue written in red and red in purple) and then subjects would read the list written in black (e.g., blue, red, purple). Each individual was randomly assigned the order in which to read the two list. The experimenters are interested in determine if the font color/writing style influences reading time. Specifically they wish to determine if the different writing styles result in a mean difference in time to read the list.
+
+### Part 1
+
+Comment on the design of the experiment. Specifically state all the design elements in the context of the problem: the experimental units, the response variable(s), the factor, factor levels, the treatments, and the steps the experimenter took in an attempt to control for nuisance variation or confounding variables. 
+
+*The experimental units of this experiment are the individuals taking the test, whereas the response variables are the time it takes to read the list. The factor is the List they are reading, with there being two factor levels. The two different treatments are what order they read the two lists: either multicolored then monochrome, or vice versa. The primary step that the experimenters took to control nuisance variation was by randomizing the order in which a subject reads the lists*
+
+### Part 2
+
+Build an appropriate plot for the design of data. Comment on what you see, including comments on the average and variation in the response. Make sure your plot is properly labeled and would be understandable to an outside viewer (that is, the labels and titles explain the context).
+```{r}
+  color_interference.data <- color_interference %>%
+  pivot_longer(c(DiffCol, Black), names_to="EvalType", values_to="Mean") %>%
+  mutate(EvalType=factor(EvalType,levels=c("DiffCol","Black")))
+
+ggplot(color_interference.data, aes(x =  EvalType, y = Mean)) +
+  geom_boxplot() +
+  geom_point(aes(group = Subj, color = Subj), alpha = 0.4) + 
+  geom_line(aes(group = Subj, color = Subj), alpha = 0.4) +
+  stat_summary(fun = "mean", size = 3, geom = "point", color = "blue") +
+  stat_summary(fun = "mean", size = 1, geom = "line", color="blue", aes(group = 1))+
+  theme(legend.position = "none")+
+ ylab("Test Completion Time") +
+  xlab("Test Variant")
+```
+
+
+*According to the data, the Different Colored Version of the test has quite a bit more variation than the standard Black test version. Additionally, it took people longer to complete the colored test on average*
+
+### Part 3
+
+Perform the appropriate statistical analysis for this design. 
+```{r}
+t.test(color_interference$DiffCol, color_interference$Black, paired=TRUE)
+```
+
+*Due to the P-Value of 0.01624, we can conclude that there is a significant difference with 95% confidence while comparing the Different Color test times and the Black test times *
+
+### Part 4
+
+Perform a residual analysis for the statistical method chosen in part 3.
+
+```{r}
+color_interference.diff <- color_interference %>%
+  mutate(Difference = DiffCol - Black)
+ggplot(color_interference.diff) + 
+  geom_qq(aes(sample = Difference)) + 
+  geom_qq_line(aes(sample = Difference))
+
+```
+
+*With the exception of a little shifting off the line of best fit at the upper and lower ends of the graph, everything looks to be correct *
+
+### Part 5
+
+State the conclusion of the experiment, in context.
+
+*As a result of our analysis, we can conclude that the different font colors resulted in a mean difference between the two test types. Specifically, we can say that the Different Color test resulted in a higher mean time than the Black test.*
+
+## Problem 2
+
+An experiment was conduct to compare whether two compound X and compound Y were protective in a mouse model of middle cerebral artery occlusion (MCAO).The end point of the study was infarct volume measured from serial brain sections and staining with hematoxylin–eosin. Mice were randomly assigned to three groups, vehicle treatment(control), compound X and compound Y. In the data set, the three groups are coded as: 1 = vehicle, 2 = compound X and 3 = compound Y. 
+
+### Part 1 
+
+Comment on the design of the experiment. Specifically state all the design elements in the context of the problem: the experimental units, the response variable(s), the factor, factor levels, the treatments, and the steps the experimenter took in an attempt to control for nuisance variation or confounding variables. 
+
+*The experimental units in this problem are the mice, whereas the response variables are whether or not the mouse was protected from MCAO. The factor was which treatment they received, and there are three factor levels. The different treatments are whether or not they received compound x, compound y, or no compound at all. *
+
+### Part 2 
+
+Create a factor version of the variable that requires it.
+```{r}
+infarct %>%
+mutate(Treatment=factor("Treatment", 1:3, 
+                        labels=c(
+                          "vehicle", 
+                          "compound X", 
+                          "compound Y")))
+glimpse(infarct)
+```
+
+### Part 3
+Perform a meaning/helping EDA for this data. Comment on what you see, including comment on average and variation in foam index.
+```{r}
+ggplot(infarct, aes(x=as.factor(Treatment), y=Volume, group_by(Treatment))) + 
+  geom_boxplot( col="gray") +
+  stat_summary(fun=mean, geom="point", shape=21, stroke=2, fill="white", color="blue")+
+  labs(x="Treatments", y="Infarct Volume Measured") + 
+  theme_bw()
+```
+
+*The above plot shows that Compound Y has a lower average compound than Compound X and the Control Group. Y also has less variation than its counterparts.*
+
+### Part 4
+Perform the appropriate statistical analysis for this design. Cite the statistics value, degrees of freedom, p-value, and the conclusion in problem context.
+```{r}
+infarct_aov <- aov(Volume~ Treatment, data=infarct)
+summary(infarct_aov)
+```
+
+*The data show a F-Value of 5.79 and a P-Value of 0.00628 with two degrees of freedom, showing us that there is a significant difference in the volume depending on the treatment used.*
+
+### Part 5
+
+Perform a residual analysis for the statistical method chosen in part 4 to check the model assumptions.
+
+```{r}
+autoplot(infarct_aov)
+```
+
+*The Normal Q-Q plot is as expected, with the exception of the Residuals vs Fitted having a little bit of fanning.*
+
+### Part 6
+
+Perform appropriate multiple comparisons if necessary and report the results in context.  You must provide a defense of your choice to use Tukey or Dunnett.
+
+```{r}
+infarct.treatment <- emmeans(infarct_aov, "Treatment")
+contrast(infarct.treatment, "trt.vs.ctrl", ref=1)
+```
+
+*I used the Dunnett method, as Tukey is generally used in the absence of a control group. Since we have a control group, it wouldn't make sense to use Tukey.While there is no significant difference when comparing Compound X to the control (shown by the P-Value of .9182), comparaison of Compound Y indicates significance with its P-Value of .0081 *
